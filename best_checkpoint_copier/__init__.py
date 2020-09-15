@@ -3,6 +3,7 @@ import os
 import shutil
 import tensorflow as tf
 
+
 class Checkpoint(object):
   dir = None
   file = None
@@ -25,7 +26,13 @@ class BestCheckpointCopier(tf.estimator.Exporter):
   sort_key_fn = None
   sort_reverse = None
 
-  def __init__(self, name='best_checkpoints', checkpoints_to_keep=5, score_metric='Loss/total_loss', compare_fn=lambda x,y: x.score < y.score, sort_key_fn=lambda x: x.score, sort_reverse=False):
+  def __init__(self,
+               name='best_checkpoints',
+               checkpoints_to_keep=5,
+               score_metric='Loss/total_loss',
+               compare_fn=lambda x, y: x.score < y.score,
+               sort_key_fn=lambda x: x.score,
+               sort_reverse=False):
     self.checkpoints = []
     self.checkpoints_to_keep = checkpoints_to_keep
     self.compare_fn = compare_fn
@@ -47,10 +54,13 @@ class BestCheckpointCopier(tf.estimator.Exporter):
     return os.path.join(checkpoint.dir, self.name)
 
   def _keepCheckpoint(self, checkpoint):
-    self._log('keeping checkpoint {} with score {}'.format(checkpoint.file, checkpoint.score))
+    self._log('keeping checkpoint {} with score {}'.format(
+        checkpoint.file, checkpoint.score))
 
     self.checkpoints.append(checkpoint)
-    self.checkpoints = sorted(self.checkpoints, key=self.sort_key_fn, reverse=self.sort_reverse)
+    # self.checkpoints = sorted(self.checkpoints,
+    #                           key=self.sort_key_fn,
+    #                           reverse=self.sort_reverse)
 
     self._copyCheckpoint(checkpoint)
 
@@ -60,23 +70,35 @@ class BestCheckpointCopier(tf.estimator.Exporter):
   def _pruneCheckpoints(self, checkpoint):
     destination_dir = self._destinationDir(checkpoint)
 
-    for checkpoint in self.checkpoints[self.checkpoints_to_keep:]:
-      self._log('removing old checkpoint {} with score {}'.format(checkpoint.file, checkpoint.score))
+    # for checkpoint in self.checkpoints[self.checkpoints_to_keep:]:
+    #   self._log('removing old checkpoint {} with score {}'.format(
+    #       checkpoint.file, checkpoint.score))
+
+    #   old_checkpoint_path = os.path.join(destination_dir, checkpoint.file)
+    #   for file in glob.glob(r'{}*'.format(old_checkpoint_path)):
+    #     self._log('removing old checkpoint file {}'.format(file))
+    #     os.remove(file)
+
+    if len(self.checkpoints) >= self.checkpoints_to_keep:
+      checkpoint = self.checkpoints[0]
+      self._log('removing old checkpoint {} with score {}'.format(
+          checkpoint.file, checkpoint.score))
 
       old_checkpoint_path = os.path.join(destination_dir, checkpoint.file)
       for file in glob.glob(r'{}*'.format(old_checkpoint_path)):
         self._log('removing old checkpoint file {}'.format(file))
         os.remove(file)
-
-    self.checkpoints = self.checkpoints[0:self.checkpoints_to_keep]
+      self.checkpoints = self.checkpoints[1:]
 
   def _score(self, eval_result):
     return float(eval_result[self.score_metric])
 
   def _shouldKeep(self, checkpoint):
-    return len(self.checkpoints) < self.checkpoints_to_keep or self.compare_fn(checkpoint, self.checkpoints[-1])
+    #return len(self.checkpoints) < self.checkpoints_to_keep or self.compare_fn(checkpoint, self.checkpoints[-1])
+    return not self.checkpoints or self.compare_fn(checkpoint, self.checkpoints[-1])
 
-  def export(self, estimator, export_path, checkpoint_path, eval_result, is_the_final_export):
+  def export(self, estimator, export_path, checkpoint_path, eval_result,
+             is_the_final_export):
     self._log('export checkpoint {}'.format(checkpoint_path))
 
     score = self._score(eval_result)
